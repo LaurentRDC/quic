@@ -26,16 +26,16 @@ getEndOfStream :: Stream -> IO Bool
 getEndOfStream Stream{..} = readIORef $ endOfStream streamRecvQ
 
 setEndOfStream :: Stream -> IO ()
-setEndOfStream Stream{..} = writeIORef (endOfStream streamRecvQ) True
+setEndOfStream Stream{..} = atomicWriteIORef (endOfStream streamRecvQ) True
 
 readPendingData :: Stream -> IO (Maybe ByteString)
 readPendingData Stream{..} = readIORef $ pendingData streamRecvQ
 
 writePendingData :: Stream -> ByteString -> IO ()
-writePendingData Stream{..} bs = writeIORef (pendingData streamRecvQ) $ Just bs
+writePendingData Stream{..} bs = atomicWriteIORef (pendingData streamRecvQ) $ Just bs
 
 clearPendingData :: Stream -> IO ()
-clearPendingData Stream{..} = writeIORef (pendingData streamRecvQ) Nothing
+clearPendingData Stream{..} = atomicWriteIORef (pendingData streamRecvQ) Nothing
 
 ----------------------------------------------------------------
 
@@ -123,11 +123,11 @@ tryReassemble Stream{..} x@(RxStreamData "" off _ True) _ putFin = do
         else case off `compare` off0 of
             LT -> return True
             EQ -> do
-                writeIORef streamStateRx si1
+                atomicWriteIORef streamStateRx si1
                 putFin
                 return False
             GT -> do
-                writeIORef streamStateRx si1
+                atomicWriteIORef streamStateRx si1
                 atomicModifyIORef'' streamReass (Skew.insert x)
                 return False
 tryReassemble Stream{..} x@(RxStreamData dat off len False) put putFin = do
@@ -145,7 +145,7 @@ tryReassemble Stream{..} x@(RxStreamData dat off len False) put putFin = do
     loop si0 xff = do
         mrxs <- atomicModifyIORef' streamReass (Skew.deleteMinIf xff)
         case mrxs of
-            Nothing -> writeIORef streamStateRx si0{streamOffset = xff}
+            Nothing -> atomicWriteIORef streamStateRx si0{streamOffset = xff}
             Just rxs -> do
                 mapM_ (put . rxstrmData) rxs
                 let xff1 = nextOff rxs
@@ -163,12 +163,12 @@ tryReassemble Stream{..} x@(RxStreamData dat off len True) put putFin = do
             LT -> return True
             EQ -> do
                 let off1 = off0 + len
-                writeIORef streamStateRx si1{streamOffset = off1}
+                atomicWriteIORef streamStateRx si1{streamOffset = off1}
                 put dat
                 putFin
                 return False
             GT -> do
-                writeIORef streamStateRx si1
+                atomicWriteIORef streamStateRx si1
                 atomicModifyIORef'' streamReass (Skew.insert x)
                 return False
 
