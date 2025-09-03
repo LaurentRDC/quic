@@ -19,6 +19,7 @@ import Network.QUIC.Stream.Queue
 import qualified Network.QUIC.Stream.Skew as Skew
 import Network.QUIC.Stream.Types
 import Network.QUIC.Types
+import Debug.Trace
 
 ----------------------------------------------------------------
 
@@ -46,9 +47,11 @@ takeRecvStreamQwithSize strm siz0 = do
         then return ""
         else do
             mb <- readPendingData strm
+            traceM $ "Pending data: " <> show mb
             case mb of
                 Nothing -> do
                     b0 <- takeRecvStreamQ strm
+                    traceM $ "takeRecvStreamQ: " <> show b0
                     if b0 == ""
                         then do
                             setEndOfStream strm
@@ -60,6 +63,7 @@ takeRecvStreamQwithSize strm siz0 = do
                                 EQ -> return b0
                                 GT -> do
                                     let (b1, b2) = BS.splitAt siz0 b0
+                                    traceM $ "b1: " <> show b1 <> ", b2: " <> show b2
                                     writePendingData strm b2
                                     return b1
                 Just b0 -> do
